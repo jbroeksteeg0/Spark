@@ -1,0 +1,11 @@
+let double = fn(x) { return x*2; };
+let input = [1,2,3];
+
+let map = fn(f, lst) {
+    if (x == []) {
+        return x;
+    }
+    return [f(lst[0])] + map(f, lst[1:]);
+};
+
+print(map(double, input));
