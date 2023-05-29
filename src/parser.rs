@@ -169,6 +169,7 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
                 input.iter().take(10).collect::<Vec<_>>()
             )),
         },
+
         // Parse return statement
         [Token::TkReturn, after_return @ ..] => match parse_expression_and_semi(after_return) {
             Ok((node, after_semi)) => Ok((ASTNode::ReturnStatement(Box::new(node)), after_semi)),

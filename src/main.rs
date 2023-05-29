@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod tokeniser;
+pub mod interpreter;
 
 use parser::parse_tokens;
 use tokeniser::lex_string;
