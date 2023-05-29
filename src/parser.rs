@@ -110,11 +110,68 @@ fn parse_expression_as(input: &[Token]) -> Option<(ASTNode, &[Token])> {
     };
 }
 
-fn parse_expression(input: &[Token]) -> Option<(ASTNode, &[Token])> {
-    return parse_expression_as(input);
+fn parse_expression(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
+    return match parse_expression_as(input) {
+        Some((node, xs)) => Ok((node, xs)),
+        None => Err(format!("Could not parse expression starting with {:?}", input.iter().take(5)))
+    }
 }
-pub fn parse_tokens(input: Vec<Token>) -> ASTNode {
-    println!("Parsed as: {:?}", parse_expression(input.as_slice()));
 
-    return ASTNode::Block(vec![]);
+fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
+    return match input {
+        [Token::TkLet, xs  @ ..] => {
+            match xs {
+                [Token::TkVariable(name), Token::TkEquals, expr @ ..] => {
+                    match parse_expression(expr) {
+                        Ok((expr_node, tail)) => {
+                            match tail {
+                                [Token::TkSemicolon, after @ ..] => {
+                                    Ok((ASTNode::LetStatement(name.clone(), Box::new(expr_node)), after))
+                                },
+                                _ => {
+                                    Err("Expected semicolon at end of let statement".into())
+                                }
+                            }
+                        },
+                        Err(e) => Err(e)
+                    }
+                },
+                _ => {
+                    Err(format!("Could not parse assignment starting with {:?}", input.iter().take(10)))
+                }
+            }
+        }
+        [xs @ ..] => {
+            parse_expression(xs)
+        }
+    }
+}
+
+fn parse_block(input: &[Token]) -> Result<ASTNode, String> {
+    match input {
+        [Token::TkOpenCurly, middle @ .., Token::TkCloseCurly] => {
+            let mut middle_statments: Vec<ASTNode> = vec![];
+            let mut remaining_tokens = middle;
+
+            while !remaining_tokens.is_empty() {
+                match parse_statement(remaining_tokens) {
+                    Ok((node, xs)) => {
+                        middle_statments.push(node);
+                        remaining_tokens=xs;
+                    },
+                    Err(e) => {return Err(e);}
+                };
+            }
+            return Ok(ASTNode::Block(middle_statments));
+        },
+        _ => Err("Block must start and end with {}".into())
+    }
+}
+
+pub fn parse_tokens(input: Vec<Token>) -> Result<ASTNode, String> {
+    let mut with_brackets = vec![Token::TkOpenCurly];
+    with_brackets.append(&mut input.clone());
+    with_brackets.append(&mut vec![Token::TkCloseCurly]);
+
+    return parse_block(&with_brackets);
 }

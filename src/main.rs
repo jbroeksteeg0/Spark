@@ -5,6 +5,6 @@ use parser::parse_tokens;
 use tokeniser::lex_string;
 
 fn main() {
-    let input = String::from("1+2*3-4");
-    parse_tokens(lex_string(input).unwrap());
+    let input = String::from("let x = 5+10*2; let y = \"hi\";");
+    println!("{:?}", parse_tokens(lex_string(input).unwrap()));
 }
