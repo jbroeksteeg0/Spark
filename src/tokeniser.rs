@@ -25,6 +25,7 @@ pub enum Token {
     TkCloseRound,
     TkOpenSquare,
     TkCloseSquare,
+    TkReturn,
     TkSemicolon,
     TkBinaryOperation(BinaryOperation),
     TkComma,
@@ -46,6 +47,7 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
     // All the keywords and their corresponding tokens
     let keywords = vec![
         ("let", Token::TkLet),
+        ("if", Token::TkIf),
         ("=", Token::TkEquals),
         (";", Token::TkSemicolon),
         ("(", Token::TkOpenRound),
