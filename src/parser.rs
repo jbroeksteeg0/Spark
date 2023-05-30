@@ -1,8 +1,9 @@
 use std::fmt::Binary;
 
+use crate::interpreter::{Scope, Value};
 use crate::tokeniser::{BinaryOperation, Token};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ASTNode {
     Block(Vec<ASTNode>),
     FunctionCall(String, Vec<ASTNode>),
@@ -14,6 +15,7 @@ pub enum ASTNode {
     LetStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
     IfStatement(Box<ASTNode>, Box<ASTNode>),
+    BuiltInFunction(fn(Vec<Value>, &mut Scope) -> Value),
 }
 
 type ParseFunction = fn(&[Token]) -> Option<(ASTNode, &[Token])>;
@@ -130,9 +132,9 @@ fn parse_expression_and_semi(input: &[Token]) -> Result<(ASTNode, &[Token]), Str
     return match parse_expression(input) {
         Ok((node, after_expr)) => match after_expr {
             [Token::TkSemicolon, after_semi @ ..] => Ok((node, after_semi)),
-            _ => Err(format!("Expected semicolon after expression"))
+            _ => Err(format!("Expected semicolon after expression")),
         },
-        Err(e) => Err(e)
+        Err(e) => Err(e),
     };
 }
 
@@ -173,13 +175,13 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
         // Parse return statement
         [Token::TkReturn, after_return @ ..] => match parse_expression_and_semi(after_return) {
             Ok((node, after_semi)) => Ok((ASTNode::ReturnStatement(Box::new(node)), after_semi)),
-            Err(e) => Err(e)
-        }
+            Err(e) => Err(e),
+        },
 
         // Otherwise, assume it's an expression
         [xs @ ..] => match parse_expression_and_semi(xs) {
             Ok((node, after_semi)) => Ok((node, after_semi)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         },
     };
 }
