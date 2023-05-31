@@ -10,8 +10,13 @@ use tokeniser::lex_string;
 fn main() {
     let input = String::from(
         "
-            let x = 5; 
-            println(x);
+            let x = 5+(5*3); 
+            if (x > 5) {
+                println(\"Big\");
+            }
+            if (x < 5) {
+                println(\"Small\");
+            }
     ",
     );
 

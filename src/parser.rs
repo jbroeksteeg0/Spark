@@ -33,20 +33,17 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
             loop {
                 match curr_after {
                     [Token::TkCloseRound, tail @ ..] => {
-                        return Some((
-                            ASTNode::FunctionCall(name.clone(), arg_expressions),
-                            tail
-                        ));
+                        return Some((ASTNode::FunctionCall(name.clone(), arg_expressions), tail));
                     }
-                    tail => {
-                        match parse_expression(tail) {
-                            Ok((expr_node, after)) => {
-                                arg_expressions.push(expr_node);
-                                curr_after = after; 
-                            },
-                            Err(e) => {break;}
+                    tail => match parse_expression(tail) {
+                        Ok((expr_node, after)) => {
+                            arg_expressions.push(expr_node);
+                            curr_after = after;
                         }
-                    }
+                        Err(e) => {
+                            break;
+                        }
+                    },
                 }
             }
             None
@@ -142,8 +139,38 @@ fn parse_expression_as(input: &[Token]) -> Option<(ASTNode, &[Token])> {
     };
 }
 
+fn parse_expression_comp(input: &[Token]) -> Option<(ASTNode, &[Token])> {
+    // parse EXPRESSION_AS [">=" | ">" | "<=" | "<"]
+    match parse_expression_as(input) {
+        Some((lhs, after_lhs)) => match after_lhs {
+            [Token::TkBinaryOperation(binop), after_op @ ..]
+                if !after_op.is_empty()
+                    && (binop.clone() == BinaryOperation::GE
+                        || binop.clone() == BinaryOperation::GREATER
+                        || binop.clone() == BinaryOperation::LE
+                        || binop.clone() == BinaryOperation::LESS) =>
+            {
+                match parse_expression_as(after_op) {
+                    Some((rhs, after_rhs)) => {
+                        return Some((
+                            ASTNode::BinaryOperation(Box::new(lhs), Box::new(rhs), binop.clone()),
+                            after_rhs,
+                        ));
+                    }
+                    None => {}
+                }
+            }
+
+            _ => {}
+        },
+        None => {}
+    }
+
+    return parse_expression_as(input);
+}
+
 fn parse_expression(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
-    return match parse_expression_as(input) {
+    return match parse_expression_comp(input) {
         Some((node, xs)) => Ok((node, xs)),
         None => Err(format!(
             "Could not parse expression starting with {:?}",
