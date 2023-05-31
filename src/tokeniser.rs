@@ -19,6 +19,7 @@ pub enum Token {
     TkNumber(f64),
     TkString(String),
     TkIf,
+    TkElse,
     TkOpenCurly,
     TkCloseCurly,
     TkOpenRound,
@@ -48,6 +49,8 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
     let keywords = vec![
         ("let", Token::TkLet),
         ("if", Token::TkIf),
+        ("else", Token::TkElse),
+        ("==", Token::TkBinaryOperation(BinaryOperation::EQUALS)),
         ("=", Token::TkEquals),
         (";", Token::TkSemicolon),
         ("(", Token::TkOpenRound),
@@ -61,6 +64,8 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("-", Token::TkBinaryOperation(BinaryOperation::MINUS)),
         ("*", Token::TkBinaryOperation(BinaryOperation::TIMES)),
         ("/", Token::TkBinaryOperation(BinaryOperation::DIV)),
+        (">=", Token::TkBinaryOperation(BinaryOperation::GE)),
+        ("<=", Token::TkBinaryOperation(BinaryOperation::LE)),
         (">", Token::TkBinaryOperation(BinaryOperation::GREATER)),
         ("<", Token::TkBinaryOperation(BinaryOperation::LESS)),
     ];

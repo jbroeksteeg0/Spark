@@ -10,12 +10,14 @@ use tokeniser::lex_string;
 fn main() {
     let input = String::from(
         "
-            let a = \"Hello\";
-            let b = \"World!\";
-            println(a + \", \" + b);
+            let s = str(1233);
+            if s == \"123\" {
+                println(\"Equal\");
+            }
     ",
     );
 
     let tokens = parse_tokens(lex_string(input).unwrap()).unwrap();
+    println!("{:?}", tokens);
     interpret(tokens);
 }

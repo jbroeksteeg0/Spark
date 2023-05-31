@@ -1,5 +1,5 @@
-use std::fmt::Binary;
-use std::{collections::hash_map::HashMap, rc::Rc};
+use std::collections::hash_map::HashMap;
+use std::fmt;
 
 use crate::parser::ASTNode;
 use crate::stdlibrary::create_default_scope;
@@ -19,8 +19,22 @@ impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => a == b,
-            (Value::Boolean(a), Value::Boolean(b)) => a==b,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
             _ => panic!("Cannot compare types"),
+        }
+    }
+}
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::String(s) => write!(f,"\"{}\"",s),
+            Value::Number(fl) => write!(f,"\"{}\"",fl),
+            Value::Boolean(b) => write!(f,"{}",b),
+            Value::None => write!(f,"None"),
+            Value::Function(_,_) => write!(f,"Function"),
+            _ => {
+                unimplemented!();
+            }
         }
     }
 }
@@ -62,7 +76,6 @@ impl State {
 
     pub fn push_value(&mut self, name: String, value: Value) {
         assert!(!self.scopes.is_empty());
-
         if self
             .scopes
             .last()
@@ -91,7 +104,14 @@ impl State {
             return self.default_scope.values.get(name).unwrap().clone();
         }
 
+        println!("Value {} does not exist in scope", name);
         panic!();
+    }
+
+    fn print_scopes(&self) {
+        for scope in self.scopes.iter() {
+            println!("Scope: {:?}", scope.values);
+        }
     }
 }
 
@@ -103,7 +123,7 @@ fn evaluate_binary_op(
 ) -> Value {
     let lhs_eval = evaluate_expr(lhs, state);
     let rhs_eval = evaluate_expr(rhs, state);
-
+    
     match (lhs_eval, op, rhs_eval) {
         // Algebra
         (Value::Number(l), BinaryOperation::PLUS, Value::Number(r)) => Value::Number(l + r),
@@ -115,7 +135,8 @@ fn evaluate_binary_op(
         (Value::Number(l), BinaryOperation::GE, Value::Number(r)) => Value::Boolean(l >= r),
         (Value::Number(l), BinaryOperation::GREATER, Value::Number(r)) => Value::Boolean(l > r),
         // String
-        (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a+&b),
+        (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a + &b),
+        (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a==b),
         _ => panic!("Could not evaluate binary operation"),
     }
 }
@@ -129,15 +150,17 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
                     panic!("Wrong number of arguments provided to function");
                 }
 
+
                 state.push_scope();
+                
                 for (arg_name, arg_expr) in arg_names.iter().zip(args.iter()) {
                     let evaluated = evaluate_expr(arg_expr, state);
                     state.push_value(arg_name.clone(), evaluated);
                 }
+                
                 let ret_value = interpret_block(&lines, state);
 
                 state.pop_scope();
-
                 return ret_value;
             }
             _ => panic!("Cannot use () on non-function variable"),
@@ -151,7 +174,10 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         ASTNode::BinaryOperation(l, r, op) => {
             return evaluate_binary_op(&*l, &*r, op, state);
         }
-        _ => unimplemented!(),
+        e => {
+            println!("{:?}", e);
+            unimplemented!();
+        }
     }
 }
 
@@ -160,6 +186,19 @@ fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) {
         (e, ASTNode::Block(lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
                 interpret_block(lines, state);
+            }
+        }
+        _ => panic!("If statement should be passed lines"),
+    };
+}
+
+fn interpret_if_else(cond: &ASTNode, lines: &ASTNode, else_lines: &ASTNode, state: &mut State) {
+    match (cond, lines, else_lines) {
+        (e, ASTNode::Block(lines), ASTNode::Block(else_lines)) => {
+            if evaluate_expr(e, state) == Value::Boolean(true) {
+                interpret_block(&lines, state);
+            } else {
+                interpret_block(&else_lines, state);
             }
         }
         _ => panic!("If statement should be passed lines"),
@@ -178,10 +217,18 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Value {
             ASTNode::IfStatement(cond, lines) => {
                 interpret_if(cond, lines, state);
             }
+            ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
+                interpret_if_else(cond, true_clause, false_clause, state);
+            }
             ASTNode::ReturnStatement(expr) => {
+                state.pop_scope();
                 return evaluate_expr(expr, state);
             }
-            expr => {
+            ASTNode::Block(lines) => {
+                state.pop_scope();
+                return interpret_block(lines, state);
+            }
+            _ => {
                 evaluate_expr(line, state);
             }
         };

@@ -1,7 +1,7 @@
-use std::fmt::Binary;
-
-use crate::interpreter::{Scope, State, Value};
+use crate::interpreter::{State, Value};
+use crate::parser::ASTNode::*;
 use crate::tokeniser::{BinaryOperation, Token};
+use std::fmt;
 
 #[derive(Clone)]
 pub enum ASTNode {
@@ -15,7 +15,30 @@ pub enum ASTNode {
     LetStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
     IfStatement(Box<ASTNode>, Box<ASTNode>),
+    IfElseStatement(Box<ASTNode>, Box<ASTNode>, Box<ASTNode>),
     BuiltInFunction(fn(&mut State) -> Value),
+}
+
+impl fmt::Debug for ASTNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Block(lines) => write!(f, "Block({:?})", lines),
+            IfStatement(cond, expr) => write!(f, "If({:?}, {:?})", cond, expr),
+            IfElseStatement(cond, expr, else_expr) => {
+                write!(f, "IfElse({:?}, {:?}, {:?})", cond, expr, else_expr)
+            }
+            LetStatement(name, expr) => write!(f, "Let({:?},{:?})", name, expr),
+            NumberLiteral(fl) => write!(f, "{}", fl),
+            BinaryOperation(l, r, binop) => write!(f, "BinOp{:?}({:?},{:?})", binop, l, r),
+            Variable(x) => write!(f, "{:?}", x),
+            FunctionCall(name, args) => write!(f, "Call({:?},{:?})", name, args),
+            StringLiteral(s) => write!(f, "\"{}\"", s),
+            BuiltInFunction(_) => write!(f, "BuiltInFn"),
+            _ => {
+                unimplemented!();
+            }
+        }
+    }
 }
 
 fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
@@ -40,7 +63,7 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                             arg_expressions.push(expr_node);
                             curr_after = after;
                         }
-                        Err(e) => {
+                        Err(_) => {
                             break;
                         }
                     },
@@ -146,6 +169,7 @@ fn parse_expression_comp(input: &[Token]) -> Option<(ASTNode, &[Token])> {
             [Token::TkBinaryOperation(binop), after_op @ ..]
                 if !after_op.is_empty()
                     && (binop.clone() == BinaryOperation::GE
+                        || binop.clone() == BinaryOperation::EQUALS
                         || binop.clone() == BinaryOperation::GREATER
                         || binop.clone() == BinaryOperation::LE
                         || binop.clone() == BinaryOperation::LESS) =>
@@ -208,13 +232,26 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
                 input.iter().take(10).collect::<Vec<_>>()
             )),
         },
-        // Parse If Statemetn
+        // Parse If Statement
         [Token::TkIf, after_if @ ..] => match parse_expression(after_if) {
             Ok((expr_node, after_expr)) => match parse_block(after_expr) {
-                Ok((block_node, after_block)) => Ok((
-                    ASTNode::IfStatement(Box::new(expr_node), Box::new(block_node)),
-                    after_block,
-                )),
+                Ok((block_node, after_block)) => match after_block {
+                    [Token::TkElse, after_else @ ..] => match parse_statement(after_else) {
+                        Ok((else_node, after_else_block)) => Ok((
+                            ASTNode::IfElseStatement(
+                                Box::new(expr_node),
+                                Box::new(block_node),
+                                Box::new(ASTNode::Block(vec![else_node])),
+                            ),
+                            after_else_block,
+                        )),
+                        Err(e) => Err(e),
+                    },
+                    _ => Ok((
+                        ASTNode::IfStatement(Box::new(expr_node), Box::new(block_node)),
+                        after_block,
+                    )),
+                },
                 Err(e) => Err(e),
             },
             _ => Err(format!(
@@ -229,6 +266,11 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
             Err(e) => Err(e),
         },
 
+        [Token::TkOpenCurly, ..] => match parse_block(input) {
+            Ok(x) => return Ok(x),
+            Err(e) => Err(e),
+        },
+
         // Otherwise, assume it's an expression
         [xs @ ..] => match parse_expression_and_semi(xs) {
             Ok((node, after_semi)) => Ok((node, after_semi)),
@@ -238,6 +280,7 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
 }
 
 fn parse_block(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
+    println!("Parsing block with {:?}", input);
     match input {
         [Token::TkOpenCurly, after_open @ ..] => {
             let mut middle_statements: Vec<ASTNode> = vec![];
