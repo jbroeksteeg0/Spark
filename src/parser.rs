@@ -1,6 +1,6 @@
 use std::fmt::Binary;
 
-use crate::interpreter::{Scope, Value};
+use crate::interpreter::{Scope, State, Value};
 use crate::tokeniser::{BinaryOperation, Token};
 
 #[derive(Clone)]
@@ -15,10 +15,8 @@ pub enum ASTNode {
     LetStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
     IfStatement(Box<ASTNode>, Box<ASTNode>),
-    BuiltInFunction(fn(Vec<Value>, &mut Scope) -> Value),
+    BuiltInFunction(fn(&mut State) -> Value),
 }
-
-type ParseFunction = fn(&[Token]) -> Option<(ASTNode, &[Token])>;
 
 fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
     return match input {
@@ -27,6 +25,32 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
             Ok((node, [Token::TkCloseRound, xs @ ..])) => Some((node, xs)),
             _ => None,
         },
+        // if there is a function call, return it
+        [Token::TkVariable(name), Token::TkOpenRound, xs @ ..] => {
+            let mut curr_after = xs;
+            let mut arg_expressions: Vec<ASTNode> = vec![];
+
+            loop {
+                match curr_after {
+                    [Token::TkCloseRound, tail @ ..] => {
+                        return Some((
+                            ASTNode::FunctionCall(name.clone(), arg_expressions),
+                            tail
+                        ));
+                    }
+                    tail => {
+                        match parse_expression(tail) {
+                            Ok((expr_node, after)) => {
+                                arg_expressions.push(expr_node);
+                                curr_after = after; 
+                            },
+                            Err(e) => {break;}
+                        }
+                    }
+                }
+            }
+            None
+        }
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),
         // If there is a string literal, return it

@@ -1,0 +1,1 @@
+/home/school/lang/target/debug/lang: /home/school/lang/src/interpreter.rs /home/school/lang/src/main.rs /home/school/lang/src/parser.rs /home/school/lang/src/stdlibrary.rs /home/school/lang/src/tokeniser.rs

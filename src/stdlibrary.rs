@@ -1,5 +1,6 @@
-use crate::interpreter::{Scope, Value, Value::*};
+use crate::interpreter::{State, Scope, Value, Value::*};
 use crate::parser::ASTNode;
+use std::string::String;
 
 pub fn create_default_scope() -> Scope {
     let mut scope = Scope::new();
@@ -8,8 +9,10 @@ pub fn create_default_scope() -> Scope {
         "println".into(),
         Value::Function(
             vec!["s".into()],
-            vec![Box::new(ASTNode::BuiltInFunction(|args, scope| {
-                match &args[0] {
+            vec![ASTNode::BuiltInFunction(|state: &mut State| {
+
+                let s = String::from("s");
+                match state.get_value(&s)  {
                     Number(f) => println!("{}", f),
                     String(s) => println!("{}", s),
                     None => println!("None"),
@@ -17,7 +20,7 @@ pub fn create_default_scope() -> Scope {
                 }
 
                 Value::None
-            }))],
+            })],
         ),
     );
     return scope;

@@ -3,16 +3,24 @@ use std::{collections::hash_map::HashMap, rc::Rc};
 use crate::parser::ASTNode;
 use crate::stdlibrary::create_default_scope;
 
-struct FunctionValue {}
 
 #[derive(Clone)]
 pub enum Value {
     Number(f64),
     String(String),
     List(Vec<Box<Value>>),
-    Function(Vec<String>, Vec<Box<ASTNode>>),
-    Boolean(bool)
+    Function(Vec<String>, Vec<ASTNode>),
+    Boolean(bool),
     None,
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => a==b,
+            _ => panic!("Cannot compare types")
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -27,7 +35,7 @@ impl Scope {
         };
     }
 }
-struct State {
+pub struct State {
     scopes: Vec<Scope>,
     default_scope: Scope,
 }
@@ -70,50 +78,99 @@ impl State {
             .insert(name.clone(), value.clone());
     }
 
-    pub fn get_value(&mut self, name: String) -> Value {
+    pub fn get_value(&mut self, name: &String) -> Value {
         for scope in self.scopes.iter().rev() {
-            if scope.values.contains_key(&name) {
-                return scope.values.get(&name).unwrap().clone();
+            if scope.values.contains_key(name) {
+                return scope.values.get(name).unwrap().clone();
             }
+        }
+
+        if self.default_scope.values.contains_key(name) {
+            return self.default_scope.values.get(name).unwrap().clone();
         }
 
         panic!();
     }
 }
 
-fn evaluate_expr(expr: &ASTNode) -> Value {
+fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
     match expr {
         ASTNode::NumberLiteral(f) => Value::Number(f.clone()),
         ASTNode::StringLiteral(s) => Value::String(s.clone()),
+        ASTNode::FunctionCall(name, args) => {
+            match state.get_value(name) {
+                Value::Function(arg_names, lines) => {
+                    if arg_names.len() != args.len() {
+                        panic!("Wrong number of arguments provided to function");
+                    }
+
+                    state.push_scope();
+                    for (arg_name, arg_expr) in arg_names.iter().zip(args.iter()) {
+                        let evaluated = evaluate_expr(arg_expr, state);
+                        state.push_value(arg_name.clone(), evaluated);
+                    }
+                    let ret_value = interpret_block(&lines, state);
+
+                    state.pop_scope();
+
+                    return ret_value;
+                }
+                _ => panic!("Cannot use () on non-function variable")
+            }
+        },
+        ASTNode::BuiltInFunction(f)  => {
+            f(state)
+        },
+        ASTNode::Variable(s) => {
+            return state.get_value(s);
+        }
         _ => unimplemented!(),
     }
 }
 
-fn interpret_block(lines: Vec<ASTNode>, state: &mut State) {
+fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) {
+    match (cond, lines) {
+        (e, ASTNode::Block(lines)) => {
+            if evaluate_expr(e, state) == Value::Boolean(true) {
+                interpret_block(lines, state);
+            }
+        },
+        _ => panic!("If statement should be passed lines")
+    };
+}
+
+fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Value {
     state.push_scope();
 
-    for line in &lines {
+    for line in lines {
         match line {
             ASTNode::LetStatement(name, expr) => {
-                state.push_value(name.clone(), evaluate_expr(expr));
+                let evaluated = evaluate_expr(expr, state);
+                state.push_value(name.clone(), evaluated);
+            },
+            ASTNode::IfStatement(cond, lines) => {
+                interpret_if(cond, lines, state);
+            },
+            ASTNode::ReturnStatement(expr) => {
+                return evaluate_expr(expr, state);
             }
-            x => {
-                unimplemented!()
+            expr => {
+                evaluate_expr(line, state);
             }
         };
     }
 
     state.pop_scope();
+
+    return Value::None
 }
 
 pub fn interpret(root_block: ASTNode) {
-    match root_block {
+    match &root_block {
         ASTNode::Block(lines) => {
             let mut state = State::new();
             interpret_block(lines, &mut state);
         }
         _ => panic!("Interpret should be called on a block"),
     };
-
-    println!("Finished interpreting");
 }

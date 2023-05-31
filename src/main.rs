@@ -11,7 +11,10 @@ fn main() {
     let input = String::from(
         "
             let x = 5; 
+            println(x);
     ",
     );
-    interpret(parse_tokens(lex_string(input).unwrap()).unwrap());
+
+    let tokens = parse_tokens(lex_string(input).unwrap()).unwrap();
+    interpret(tokens);
 }
