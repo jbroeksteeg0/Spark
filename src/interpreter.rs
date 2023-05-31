@@ -11,6 +11,7 @@ pub enum Value {
     String(String),
     List(Vec<Box<Value>>),
     Function(Vec<String>, Vec<Box<ASTNode>>),
+    Boolean(bool)
     None,
 }
 
@@ -87,6 +88,7 @@ fn evaluate_expr(expr: &ASTNode) -> Value {
         _ => unimplemented!(),
     }
 }
+
 fn interpret_block(lines: Vec<ASTNode>, state: &mut State) {
     state.push_scope();
 
