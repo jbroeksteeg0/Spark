@@ -1,3 +1,4 @@
+use std::fmt::Binary;
 use std::{collections::hash_map::HashMap, rc::Rc};
 
 use crate::parser::ASTNode;
@@ -104,6 +105,7 @@ fn evaluate_binary_op(
     let rhs_eval = evaluate_expr(rhs, state);
 
     match (lhs_eval, op, rhs_eval) {
+        // Algebra
         (Value::Number(l), BinaryOperation::PLUS, Value::Number(r)) => Value::Number(l + r),
         (Value::Number(l), BinaryOperation::MINUS, Value::Number(r)) => Value::Number(l - r),
         (Value::Number(l), BinaryOperation::DIV, Value::Number(r)) => Value::Number(l / r),
@@ -112,6 +114,8 @@ fn evaluate_binary_op(
         (Value::Number(l), BinaryOperation::LESS, Value::Number(r)) => Value::Boolean(l < r),
         (Value::Number(l), BinaryOperation::GE, Value::Number(r)) => Value::Boolean(l >= r),
         (Value::Number(l), BinaryOperation::GREATER, Value::Number(r)) => Value::Boolean(l > r),
+        // String
+        (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a+&b),
         _ => panic!("Could not evaluate binary operation"),
     }
 }
