@@ -11,15 +11,6 @@ use std::process::exit;
 use tokeniser::lex_string;
 
 fn main() {
-    let input = String::from(
-        "
-            let s = str(123);
-            if s == \"123\" {
-                println(\"Equal\");
-            }
-    ",
-    );
-
     let file_name: String = match env::args().nth(1) {
         Some(a) => a,
         None => {

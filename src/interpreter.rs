@@ -9,7 +9,7 @@ use crate::tokeniser::BinaryOperation;
 pub enum Value {
     Number(f64),
     String(String),
-    List(Vec<Box<Value>>),
+    List(Vec<Value>),
     Function(Vec<String>, Vec<ASTNode>),
     Boolean(bool),
     None,
@@ -28,10 +28,21 @@ impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::String(s) => write!(f, "\"{}\"", s),
-            Value::Number(fl) => write!(f, "\"{}\"", fl),
+            Value::Number(fl) => write!(f, "{}", fl),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::None => write!(f, "None"),
             Value::Function(_, _) => write!(f, "Function"),
+            Value::List(elems) => {
+                let mut s = String::from("[");
+                for elem in elems {
+                    if s != "[" {
+                        s += ",";
+                    }
+                    s += format!("{:?}", elem).as_str();
+                }
+                s += "]";
+                write!(f, "{}", s)
+            }
             _ => {
                 unimplemented!();
             }
@@ -104,13 +115,14 @@ impl State {
             return self.default_scope.values.get(name).unwrap().clone();
         }
 
-        println!("Value {} does not exist in scope", name);
+        println!("Could not find variable {}", name);
         panic!();
     }
 
     fn print_scopes(&self) {
+        println!("Current Scope:");
         for scope in self.scopes.iter() {
-            println!("Scope: {:?}", scope.values);
+            println!("  {:?}", scope.values);
         }
     }
 }
@@ -123,7 +135,7 @@ fn evaluate_binary_op(
 ) -> Value {
     let lhs_eval = evaluate_expr(lhs, state);
     let rhs_eval = evaluate_expr(rhs, state);
-
+    // println!("{:?} {:?} {:?}",lhs_eval,op,rhs_eval) ;
     match (lhs_eval, op, rhs_eval) {
         // Algebra
         (Value::Number(l), BinaryOperation::PLUS, Value::Number(r)) => Value::Number(l + r),
@@ -138,6 +150,13 @@ fn evaluate_binary_op(
         // String
         (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a + &b),
         (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a == b),
+        // List
+        (Value::List(a), BinaryOperation::EQUALS, Value::List(b)) => Value::Boolean(a==b),
+        (Value::List(a), BinaryOperation::PLUS, Value::List(b)) => {
+            let mut temp = a.clone();
+            temp.append(&mut b.clone());
+            Value::List(temp)
+        },
         _ => panic!("Could not evaluate binary operation"),
     }
 }
@@ -161,7 +180,7 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
                 let ret_value = interpret_block(&lines, state);
 
                 state.pop_scope();
-                return ret_value;
+                return ret_value.unwrap();
             }
             _ => panic!("Cannot use () on non-function variable"),
         },
@@ -177,38 +196,59 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         ASTNode::FunctionDefinition(args, lines) => {
             return Value::Function(args.clone(), lines.clone());
         }
+        ASTNode::ListLiteral(elems) => {
+            let lst: Vec<Value> = elems
+                .iter()
+                .map(|elem| evaluate_expr(elem, state))
+                .collect();
+            return Value::List(lst);
+        }
         e => {
             unimplemented!();
         }
     }
 }
 
-fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) {
+fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Value> {
     match (cond, lines) {
         (e, ASTNode::Block(lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
-                interpret_block(lines, state);
+                match interpret_block(lines, state) {
+                    Some(v) => return Some(v),
+                    None => {}
+                };
             }
         }
         _ => panic!("If statement should be passed lines"),
     };
+
+    None
 }
 
-fn interpret_if_else(cond: &ASTNode, lines: &ASTNode, else_lines: &ASTNode, state: &mut State) {
+fn interpret_if_else(cond: &ASTNode, lines: &ASTNode, else_lines: &ASTNode, state: &mut State) -> Option<Value> {
     match (cond, lines, else_lines) {
         (e, ASTNode::Block(lines), ASTNode::Block(else_lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
-                interpret_block(&lines, state);
+                match interpret_block(&lines, state) {
+                    Some(v) => return Some(v),
+                    None => {}
+                }
             } else {
-                interpret_block(&else_lines, state);
+                match interpret_block(&else_lines, state) {
+                    Some(v) => return Some(v),
+                    None => {}
+                }
             }
         }
         _ => panic!("If statement should be passed lines"),
     };
+
+    None
 }
 
-fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Value {
+fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Option<Value> {
     state.push_scope();
+    let mut return_val = None;
 
     for line in lines {
         match line {
@@ -217,18 +257,29 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Value {
                 state.push_value(name.clone(), evaluated);
             }
             ASTNode::IfStatement(cond, lines) => {
-                interpret_if(cond, lines, state);
+                match interpret_if(cond, lines, state) {
+                    Some(ret) => {
+                        return_val = Some(ret);
+                        break;
+                    },
+                    None => {}
+                }
             }
             ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
                 interpret_if_else(cond, true_clause, false_clause, state);
             }
             ASTNode::ReturnStatement(expr) => {
-                state.pop_scope();
-                return evaluate_expr(expr, state);
+                return_val = Some(evaluate_expr(expr, state));
+                break;
             }
             ASTNode::Block(lines) => {
-                state.pop_scope();
-                return interpret_block(lines, state);
+                match interpret_block(lines, state) {
+                    Some(ret) => {
+                        return_val = Some(ret);
+                        break;
+                    },
+                    None => {}
+                }
             }
             _ => {
                 evaluate_expr(line, state);
@@ -238,7 +289,7 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Value {
 
     state.pop_scope();
 
-    return Value::None;
+    return return_val;
 }
 
 pub fn interpret(root_block: ASTNode) {

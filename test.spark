@@ -1,5 +1,2 @@
-let x = fn(a) {
-    return a;
-};
-
-println(x("abc"));
+let a = [123,456];
+println(get([123],0) == 123);

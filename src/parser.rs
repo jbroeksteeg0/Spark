@@ -12,6 +12,7 @@ pub enum ASTNode {
     Variable(String),
     NumberLiteral(f64),
     StringLiteral(String),
+    ListLiteral(Vec<ASTNode>),
     LetStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
     IfStatement(Box<ASTNode>, Box<ASTNode>),
@@ -36,9 +37,7 @@ impl fmt::Debug for ASTNode {
             BuiltInFunction(_) => write!(f, "BuiltInFn"),
             FunctionDefinition(args, lines) => write!(f, "DefineFunction({:?},{:?})", args, lines),
             ReturnStatement(expr) => write!(f, "Return({:?})", expr),
-            _ => {
-                unimplemented!();
-            }
+            ListLiteral(elems) => write!(f, "{:?}", elems),
         }
     }
 }
@@ -61,9 +60,15 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                         return Some((ASTNode::FunctionCall(name.clone(), arg_expressions), tail));
                     }
                     tail => match parse_expression(tail) {
-                        Ok((expr_node, after)) => {
-                            arg_expressions.push(expr_node);
-                            curr_after = after;
+                        Ok((expr_node, after)) => match after {
+                            [Token::TkComma, after_comma @ ..] => {
+                                arg_expressions.push(expr_node);
+                                curr_after = after_comma;
+                            },
+                            _ => {
+                                arg_expressions.push(expr_node);
+                                curr_after = after;
+                            }
                         }
                         Err(_) => {
                             break;
@@ -104,6 +109,29 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                 }
                 _ => None,
             };
+        }
+        // If there is a list, return it
+        [Token::TkOpenSquare, xs @ ..] => {
+            let mut elems: Vec<ASTNode> = vec![];
+            let mut remaining = xs;
+            loop {
+                match remaining {
+                    [Token::TkCloseSquare, after_close @ ..] => {
+                        return Some((ASTNode::ListLiteral(elems), after_close));
+                    }
+                    x => match parse_expression(x) {
+                        Ok((node, after_expr)) => {
+                            remaining = match after_expr {
+                                [Token::TkComma, after_comma @ ..] => after_comma,
+                                x => x,
+                            };
+
+                            elems.push(node);
+                        }
+                        Err(_) => return None,
+                    },
+                };
+            }
         }
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),

@@ -2,10 +2,19 @@ let double = fn(x) { return x*2; };
 let input = [1,2,3];
 
 let map = fn(f, lst) {
-    if (x == []) {
-        return x;
+    if (lst == []) {
+        return lst;
     }
-    return [f( sub(lst, 0, 0) )] + map(f, sub(lst, 1, len(lst) - 1));
+    if (len(lst) == 1) {
+        let elem = get(lst, 0);
+        let func = f(elem);
+        let s = str(func);
+        return [func];
+    }
+
+    let before = f( get(lst, 0) );
+    let after = sub(lst, 1, len(lst) - 1);
+    return [f( get(lst, 0) )] + map(f, after);
 };
 
-print(map(double, input));
+println(map(double, input));
