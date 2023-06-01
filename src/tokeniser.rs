@@ -9,6 +9,7 @@ pub enum BinaryOperation {
     GREATER,
     LESS,
     EQUALS,
+    MOD
 }
 
 #[derive(Debug, Clone)]
@@ -18,6 +19,7 @@ pub enum Token {
     TkVariable(String),
     TkNumber(f64),
     TkString(String),
+    TkBool(bool),
     TkIf,
     TkElse,
     TkOpenCurly,
@@ -28,6 +30,7 @@ pub enum Token {
     TkCloseSquare,
     TkReturn,
     TkSemicolon,
+    TkWhile,
     TkBinaryOperation(BinaryOperation),
     TkComma,
     TkFn,
@@ -52,6 +55,7 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("else", Token::TkElse),
         ("fn", Token::TkFn),
         ("return", Token::TkReturn),
+        ("while", Token::TkWhile),
         ("==", Token::TkBinaryOperation(BinaryOperation::EQUALS)),
         ("=", Token::TkEquals),
         (";", Token::TkSemicolon),
@@ -62,10 +66,13 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("{", Token::TkOpenCurly),
         ("}", Token::TkCloseCurly),
         (",", Token::TkComma),
+        ("true", Token::TkBool(true)),
+        ("false", Token::TkBool(false)),
         ("+", Token::TkBinaryOperation(BinaryOperation::PLUS)),
         ("-", Token::TkBinaryOperation(BinaryOperation::MINUS)),
         ("*", Token::TkBinaryOperation(BinaryOperation::TIMES)),
         ("/", Token::TkBinaryOperation(BinaryOperation::DIV)),
+        ("%", Token::TkBinaryOperation(BinaryOperation::MOD)),
         (">=", Token::TkBinaryOperation(BinaryOperation::GE)),
         ("<=", Token::TkBinaryOperation(BinaryOperation::LE)),
         (">", Token::TkBinaryOperation(BinaryOperation::GREATER)),
@@ -89,7 +96,7 @@ fn lex_variable(input: &str) -> Option<(Vec<Token>, &str)> {
     if input.chars().nth(0).unwrap().is_alphabetic() {
         let prefix: String = input
             .chars()
-            .take_while(|ch| ch.is_alphanumeric())
+            .take_while(|ch| ch.is_alphanumeric() || ch == &'_')
             .collect();
         let len = prefix.len();
         return Some((vec![Token::TkVariable(prefix.into())], &input[len..]));

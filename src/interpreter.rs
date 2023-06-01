@@ -104,6 +104,19 @@ impl State {
             .insert(name.clone(), value.clone());
     }
 
+    pub fn set_value(&mut self, name: String, value: Value) {
+        if self.scopes.iter().any(|x| x.values.contains_key(&name)) {
+            self.scopes
+                .iter_mut()
+                .find(|x| x.values.contains_key(&name))
+                .unwrap()
+                .values
+                .insert(name, value.clone());
+            return;
+        }
+        panic!("Variable is not defined");
+    }
+
     pub fn get_value(&mut self, name: &String) -> Value {
         for scope in self.scopes.iter().rev() {
             if scope.values.contains_key(name) {
@@ -142,6 +155,7 @@ fn evaluate_binary_op(
         (Value::Number(l), BinaryOperation::MINUS, Value::Number(r)) => Value::Number(l - r),
         (Value::Number(l), BinaryOperation::DIV, Value::Number(r)) => Value::Number(l / r),
         (Value::Number(l), BinaryOperation::TIMES, Value::Number(r)) => Value::Number(l * r),
+        (Value::Number(l), BinaryOperation::MOD, Value::Number(r)) => Value::Number(l % r),
         (Value::Number(l), BinaryOperation::LE, Value::Number(r)) => Value::Boolean(l <= r),
         (Value::Number(l), BinaryOperation::LESS, Value::Number(r)) => Value::Boolean(l < r),
         (Value::Number(l), BinaryOperation::GE, Value::Number(r)) => Value::Boolean(l >= r),
@@ -151,12 +165,13 @@ fn evaluate_binary_op(
         (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a + &b),
         (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a == b),
         // List
-        (Value::List(a), BinaryOperation::EQUALS, Value::List(b)) => Value::Boolean(a==b),
+        (Value::List(a), BinaryOperation::EQUALS, Value::List(b)) => Value::Boolean(a == b),
         (Value::List(a), BinaryOperation::PLUS, Value::List(b)) => {
             let mut temp = a.clone();
             temp.append(&mut b.clone());
             Value::List(temp)
         },
+        (Value::Boolean(a), BinaryOperation::EQUALS, Value::Boolean(b)) => Value::Boolean(a == b),
         _ => panic!("Could not evaluate binary operation"),
     }
 }
@@ -164,6 +179,7 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
     match expr {
         ASTNode::NumberLiteral(f) => Value::Number(f.clone()),
         ASTNode::StringLiteral(s) => Value::String(s.clone()),
+        ASTNode::BoolLiteral(b) => Value::Boolean(b.clone()),
         ASTNode::FunctionCall(name, args) => match state.get_value(name) {
             Value::Function(arg_names, lines) => {
                 if arg_names.len() != args.len() {
@@ -225,7 +241,32 @@ fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Va
     None
 }
 
-fn interpret_if_else(cond: &ASTNode, lines: &ASTNode, else_lines: &ASTNode, state: &mut State) -> Option<Value> {
+fn interpret_while(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Value> {
+    loop {
+        match (cond, lines) {
+            (e, ASTNode::Block(lines)) => {
+                if evaluate_expr(e, state) == Value::Boolean(true) {
+                    match interpret_block(lines, state) {
+                        Some(v) => return Some(v),
+                        None => {}
+                    };
+                } else {
+                    break;
+                }
+            }
+            _ => panic!("If statement should be passed lines"),
+        };
+    }
+
+    None
+}
+
+fn interpret_if_else(
+    cond: &ASTNode,
+    lines: &ASTNode,
+    else_lines: &ASTNode,
+    state: &mut State,
+) -> Option<Value> {
     match (cond, lines, else_lines) {
         (e, ASTNode::Block(lines), ASTNode::Block(else_lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
@@ -256,15 +297,24 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Option<Value> {
                 let evaluated = evaluate_expr(expr, state);
                 state.push_value(name.clone(), evaluated);
             }
-            ASTNode::IfStatement(cond, lines) => {
-                match interpret_if(cond, lines, state) {
-                    Some(ret) => {
-                        return_val = Some(ret);
-                        break;
-                    },
-                    None => {}
-                }
+            ASTNode::AssignStatement(name, expr) => {
+                let evaluated = evaluate_expr(expr, state);
+                state.set_value(name.clone(), evaluated);
             }
+            ASTNode::IfStatement(cond, lines) => match interpret_if(cond, lines, state) {
+                Some(ret) => {
+                    return_val = Some(ret);
+                    break;
+                }
+                None => {}
+            },
+            ASTNode::WhileStatement(cond, lines) => match interpret_while(cond, lines, state) {
+                Some(ret) => {
+                    return_val = Some(ret);
+                    break;
+                }
+                None => {}
+            },
             ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
                 interpret_if_else(cond, true_clause, false_clause, state);
             }
@@ -272,15 +322,13 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Option<Value> {
                 return_val = Some(evaluate_expr(expr, state));
                 break;
             }
-            ASTNode::Block(lines) => {
-                match interpret_block(lines, state) {
-                    Some(ret) => {
-                        return_val = Some(ret);
-                        break;
-                    },
-                    None => {}
+            ASTNode::Block(lines) => match interpret_block(lines, state) {
+                Some(ret) => {
+                    return_val = Some(ret);
+                    break;
                 }
-            }
+                None => {}
+            },
             _ => {
                 evaluate_expr(line, state);
             }

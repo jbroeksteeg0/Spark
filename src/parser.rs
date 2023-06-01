@@ -1,7 +1,7 @@
 use crate::interpreter::{State, Value};
 use crate::parser::ASTNode::*;
 use crate::tokeniser::{BinaryOperation, Token};
-use std::fmt;
+use std::fmt::{self, Binary};
 
 #[derive(Clone)]
 pub enum ASTNode {
@@ -12,10 +12,13 @@ pub enum ASTNode {
     Variable(String),
     NumberLiteral(f64),
     StringLiteral(String),
+    BoolLiteral(bool),
     ListLiteral(Vec<ASTNode>),
     LetStatement(String, Box<ASTNode>),
+    AssignStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
     IfStatement(Box<ASTNode>, Box<ASTNode>),
+    WhileStatement(Box<ASTNode>, Box<ASTNode>),
     IfElseStatement(Box<ASTNode>, Box<ASTNode>, Box<ASTNode>),
     BuiltInFunction(fn(&mut State) -> Value),
 }
@@ -29,7 +32,9 @@ impl fmt::Debug for ASTNode {
                 write!(f, "IfElse({:?}, {:?}, {:?})", cond, expr, else_expr)
             }
             LetStatement(name, expr) => write!(f, "Let({:?},{:?})", name, expr),
+            AssignStatement(name, expr) => write!(f, "Assign({:?},{:?})", name, expr),
             NumberLiteral(fl) => write!(f, "{}", fl),
+            BoolLiteral(b) => write!(f, "{}", b),
             BinaryOperation(l, r, binop) => write!(f, "BinOp{:?}({:?},{:?})", binop, l, r),
             Variable(x) => write!(f, "{:?}", x),
             FunctionCall(name, args) => write!(f, "Call({:?},{:?})", name, args),
@@ -38,6 +43,7 @@ impl fmt::Debug for ASTNode {
             FunctionDefinition(args, lines) => write!(f, "DefineFunction({:?},{:?})", args, lines),
             ReturnStatement(expr) => write!(f, "Return({:?})", expr),
             ListLiteral(elems) => write!(f, "{:?}", elems),
+            WhileStatement(cond, lines) => write!(f, "While({:?}, {:?})", cond, lines),
         }
     }
 }
@@ -64,12 +70,12 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                             [Token::TkComma, after_comma @ ..] => {
                                 arg_expressions.push(expr_node);
                                 curr_after = after_comma;
-                            },
+                            }
                             _ => {
                                 arg_expressions.push(expr_node);
                                 curr_after = after;
                             }
-                        }
+                        },
                         Err(_) => {
                             break;
                         }
@@ -137,6 +143,8 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),
         // If there is a string literal, return it
         [Token::TkString(s), ..] => Some((ASTNode::StringLiteral(s.clone()), &input[1..])),
+        // If there is a bool literal, return it
+        [Token::TkBool(b), ..] => Some((ASTNode::BoolLiteral(b.clone()), &input[1..])),
         // If there is a variable name, return it
         [Token::TkVariable(s), ..] => Some((ASTNode::Variable(s.clone()), &input[1..])),
         // Otherwise, fail
@@ -154,7 +162,8 @@ fn parse_expression_md(input: &[Token]) -> Option<(ASTNode, &[Token])> {
             Some((_, tail1)) => match tail1.iter().nth(0) {
                 Some(Token::TkBinaryOperation(binop))
                     if binop.clone() == BinaryOperation::TIMES
-                        || binop.clone() == BinaryOperation::DIV =>
+                        || binop.clone() == BinaryOperation::DIV
+                        || binop.clone() == BinaryOperation::MOD  =>
                 {
                     let chars_behind = input.len() - (tail1.len() - 1);
 
@@ -321,7 +330,20 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
                 input.iter().take(10).collect::<Vec<_>>()
             )),
         },
-
+        // Parse While Statement
+        [Token::TkWhile, after_while @ ..] => match parse_expression(after_while) {
+            Ok((expr_node, after_expr)) => match parse_block(after_expr) {
+                Ok((block_node, after_block)) => Ok((
+                    ASTNode::WhileStatement(Box::new(expr_node), Box::new(block_node)),
+                    after_block,
+                )),
+                Err(e) => Err(e),
+            },
+            _ => Err(format!(
+                "Could not parse while statement starting with {:?}",
+                input.iter().take(10).collect::<Vec<_>>()
+            )),
+        },
         // Parse return statement
         [Token::TkReturn, after_return @ ..] => match parse_expression_and_semi(after_return) {
             Ok((node, after_semi)) => Ok((ASTNode::ReturnStatement(Box::new(node)), after_semi)),
@@ -333,7 +355,16 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
             Err(e) => Err(e),
         },
 
-        // Otherwise, assume it's an expression
+        [Token::TkVariable(var_name), Token::TkEquals, after @ ..] => {
+            match parse_expression_and_semi(after) {
+                Ok((expr_node, after_semi)) => Ok((
+                    ASTNode::AssignStatement(var_name.clone(), Box::new(expr_node)),
+                    after_semi,
+                )),
+                Err(e) => Err(e),
+            }
+        }
+        // Otherwise, assume it's an expression or assignment
         [xs @ ..] => match parse_expression_and_semi(xs) {
             Ok((node, after_semi)) => Ok((node, after_semi)),
             Err(e) => Err(e),

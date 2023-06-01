@@ -84,13 +84,11 @@ pub fn create_default_scope() -> Scope {
             vec![ASTNode::ReturnStatement(Box::new(
                 ASTNode::BuiltInFunction(|state: &mut State| {
                     return match state.get_value(&String::from("lst")) {
-                        Value::List(elems) => {
-                            Value::Number(elems.len() as f64)
-                        },
+                        Value::List(elems) => Value::Number(elems.len() as f64),
                         _ => {
                             panic!("len expected list");
                         }
-                    }
+                    };
                 }),
             ))],
         ),
@@ -114,7 +112,7 @@ pub fn create_default_scope() -> Scope {
                             }
                             let l_ind = l_float as i32;
                             let r_ind = r_float as i32;
-                            
+
                             for idx in l_ind..(r_ind + 1) {
                                 if idx < 0 || idx >= elems.len() as i32 {
                                     continue;
@@ -141,7 +139,7 @@ pub fn create_default_scope() -> Scope {
                 ASTNode::BuiltInFunction(|state: &mut State| {
                     let lst = state.get_value(&"lst".into());
                     let idx = state.get_value(&"idx".into());
-                    
+
                     return match (lst, idx) {
                         (Value::List(elems), Value::Number(idx_float)) => {
                             if idx_float % 1.0f64 != 0.0 {
@@ -151,7 +149,7 @@ pub fn create_default_scope() -> Scope {
                             // println!("Given {} to {:?}",idx_float,elems);
                             if idx_ind < 0 || idx_ind >= (elems.len() as i32) {
                                 panic!("index provided to 'len' out of bounds");
-                            } 
+                            }
 
                             let ret = elems.get(idx_ind as usize).unwrap().clone();
                             ret
@@ -160,7 +158,6 @@ pub fn create_default_scope() -> Scope {
                             panic!("'get' expects a list and two numbers, other values found");
                         }
                     };
-
                 }),
             ))],
         ),
