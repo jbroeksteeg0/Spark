@@ -34,6 +34,7 @@ impl fmt::Debug for ASTNode {
             FunctionCall(name, args) => write!(f, "Call({:?},{:?})", name, args),
             StringLiteral(s) => write!(f, "\"{}\"", s),
             BuiltInFunction(_) => write!(f, "BuiltInFn"),
+            FunctionDefinition(args, lines) => write!(f, "DefineFunction({:?},{:?})",args,lines),
             _ => {
                 unimplemented!();
             }
@@ -70,6 +71,40 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                 }
             }
             None
+        }
+        // if there is a function definition, parse that
+        [Token::TkFn, Token::TkOpenRound, xs @ ..] => {
+            let mut arg_names: Vec<String> = vec![];
+            let mut after = xs;
+
+            loop {
+                match after {
+                    [Token::TkCloseRound, after_close @ ..] => {
+                        after = after_close;
+                        break;
+                    },
+                    [Token::TkVariable(var_name), Token::TkComma, tail @ ..] => {
+                        arg_names.push(var_name.clone());
+                        after = tail;
+                    },
+                    [Token::TkVariable(var_name), Token::TkCloseRound, tail @ ..] => {
+                        arg_names.push(var_name.clone());
+                        after = tail;
+                        break;
+                    }
+                    _ => {
+                        return None;
+                    }
+                }
+            }
+            
+            return match parse_block(after) {
+                Ok((ASTNode::Block(lines), after_block)) => Some((
+                    ASTNode::FunctionDefinition(arg_names, lines),
+                    after_block
+                )),
+                _ => None
+            }
         }
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),
@@ -280,7 +315,6 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
 }
 
 fn parse_block(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
-    println!("Parsing block with {:?}", input);
     match input {
         [Token::TkOpenCurly, after_open @ ..] => {
             let mut middle_statements: Vec<ASTNode> = vec![];

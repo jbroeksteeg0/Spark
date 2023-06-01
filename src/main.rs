@@ -6,18 +6,31 @@ pub mod tokeniser;
 use interpreter::interpret;
 use parser::parse_tokens;
 use tokeniser::lex_string;
+use std::env;
+use std::process::exit;
+use std::fs;
 
 fn main() {
     let input = String::from(
         "
-            let s = str(1233);
+            let s = str(123);
             if s == \"123\" {
                 println(\"Equal\");
             }
     ",
     );
 
-    let tokens = parse_tokens(lex_string(input).unwrap()).unwrap();
-    println!("{:?}", tokens);
+    let file_name: String = match env::args().nth(1) {
+        Some(a) => a,
+        None => {
+            println!("Please provide a filename");
+            exit(1);
+        }
+    };
+
+    let file_content = fs::read_to_string(file_name).expect("Unable to read file");
+
+    let tokens = parse_tokens(lex_string(file_content).unwrap()).unwrap();
+    
     interpret(tokens);
 }

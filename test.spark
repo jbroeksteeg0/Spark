@@ -1,0 +1,5 @@
+let x = fn(s) {
+    println(str(s));
+};
+
+x(123);

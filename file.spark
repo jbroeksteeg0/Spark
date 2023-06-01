@@ -5,7 +5,7 @@ let map = fn(f, lst) {
     if (x == []) {
         return x;
     }
-    return [f(lst[0])] + map(f, lst[1:]);
+    return [f( sub(lst, 0, 0) )] + map(f, sub(lst, 1, len(lst) - 1));
 };
 
 print(map(double, input));

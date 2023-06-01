@@ -50,6 +50,7 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("let", Token::TkLet),
         ("if", Token::TkIf),
         ("else", Token::TkElse),
+        ("fn", Token::TkFn),
         ("==", Token::TkBinaryOperation(BinaryOperation::EQUALS)),
         ("=", Token::TkEquals),
         (";", Token::TkSemicolon),

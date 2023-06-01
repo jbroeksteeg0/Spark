@@ -33,6 +33,7 @@ pub fn create_default_scope() -> Scope {
                     Number(f) => Value::String(format!("{}",f)),
                     String(s) => Value::String(s),
                     Boolean(b) => Value::String(if b {"true".into()} else {"false".into()}),
+                    Function(_,_) => Value::String("FunctionObject".into()),
                     None => Value::String("None".into()),
                     _ => unimplemented!(),
                 };

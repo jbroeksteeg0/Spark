@@ -134,6 +134,7 @@ fn evaluate_binary_op(
         (Value::Number(l), BinaryOperation::LESS, Value::Number(r)) => Value::Boolean(l < r),
         (Value::Number(l), BinaryOperation::GE, Value::Number(r)) => Value::Boolean(l >= r),
         (Value::Number(l), BinaryOperation::GREATER, Value::Number(r)) => Value::Boolean(l > r),
+        (Value::Number(l), BinaryOperation::EQUALS, Value::Number(r)) => Value::Boolean(l == r),
         // String
         (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a + &b),
         (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a==b),
@@ -173,9 +174,11 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         }
         ASTNode::BinaryOperation(l, r, op) => {
             return evaluate_binary_op(&*l, &*r, op, state);
-        }
+        },
+        ASTNode::FunctionDefinition(args, lines) => {
+            return Value::Function(args.clone(),lines.clone());
+        },
         e => {
-            println!("{:?}", e);
             unimplemented!();
         }
     }
