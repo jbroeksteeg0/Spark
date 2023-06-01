@@ -1,5 +1,5 @@
-let x = fn(s) {
-    println(str(s));
+let x = fn(a) {
+    return a;
 };
 
-x(123);
+println(x("abc"));

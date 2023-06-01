@@ -34,7 +34,8 @@ impl fmt::Debug for ASTNode {
             FunctionCall(name, args) => write!(f, "Call({:?},{:?})", name, args),
             StringLiteral(s) => write!(f, "\"{}\"", s),
             BuiltInFunction(_) => write!(f, "BuiltInFn"),
-            FunctionDefinition(args, lines) => write!(f, "DefineFunction({:?},{:?})",args,lines),
+            FunctionDefinition(args, lines) => write!(f, "DefineFunction({:?},{:?})", args, lines),
+            ReturnStatement(expr) => write!(f, "Return({:?})", expr),
             _ => {
                 unimplemented!();
             }
@@ -82,11 +83,11 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                     [Token::TkCloseRound, after_close @ ..] => {
                         after = after_close;
                         break;
-                    },
+                    }
                     [Token::TkVariable(var_name), Token::TkComma, tail @ ..] => {
                         arg_names.push(var_name.clone());
                         after = tail;
-                    },
+                    }
                     [Token::TkVariable(var_name), Token::TkCloseRound, tail @ ..] => {
                         arg_names.push(var_name.clone());
                         after = tail;
@@ -97,14 +98,12 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                     }
                 }
             }
-            
             return match parse_block(after) {
-                Ok((ASTNode::Block(lines), after_block)) => Some((
-                    ASTNode::FunctionDefinition(arg_names, lines),
-                    after_block
-                )),
-                _ => None
-            }
+                Ok((ASTNode::Block(lines), after_block)) => {
+                    Some((ASTNode::FunctionDefinition(arg_names, lines), after_block))
+                }
+                _ => None,
+            };
         }
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),

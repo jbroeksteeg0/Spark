@@ -27,11 +27,11 @@ impl PartialEq for Value {
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::String(s) => write!(f,"\"{}\"",s),
-            Value::Number(fl) => write!(f,"\"{}\"",fl),
-            Value::Boolean(b) => write!(f,"{}",b),
-            Value::None => write!(f,"None"),
-            Value::Function(_,_) => write!(f,"Function"),
+            Value::String(s) => write!(f, "\"{}\"", s),
+            Value::Number(fl) => write!(f, "\"{}\"", fl),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::None => write!(f, "None"),
+            Value::Function(_, _) => write!(f, "Function"),
             _ => {
                 unimplemented!();
             }
@@ -123,7 +123,7 @@ fn evaluate_binary_op(
 ) -> Value {
     let lhs_eval = evaluate_expr(lhs, state);
     let rhs_eval = evaluate_expr(rhs, state);
-    
+
     match (lhs_eval, op, rhs_eval) {
         // Algebra
         (Value::Number(l), BinaryOperation::PLUS, Value::Number(r)) => Value::Number(l + r),
@@ -137,7 +137,7 @@ fn evaluate_binary_op(
         (Value::Number(l), BinaryOperation::EQUALS, Value::Number(r)) => Value::Boolean(l == r),
         // String
         (Value::String(a), BinaryOperation::PLUS, Value::String(b)) => Value::String(a + &b),
-        (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a==b),
+        (Value::String(a), BinaryOperation::EQUALS, Value::String(b)) => Value::Boolean(a == b),
         _ => panic!("Could not evaluate binary operation"),
     }
 }
@@ -151,14 +151,13 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
                     panic!("Wrong number of arguments provided to function");
                 }
 
-
                 state.push_scope();
-                
+
                 for (arg_name, arg_expr) in arg_names.iter().zip(args.iter()) {
                     let evaluated = evaluate_expr(arg_expr, state);
                     state.push_value(arg_name.clone(), evaluated);
                 }
-                
+
                 let ret_value = interpret_block(&lines, state);
 
                 state.pop_scope();
@@ -174,10 +173,10 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         }
         ASTNode::BinaryOperation(l, r, op) => {
             return evaluate_binary_op(&*l, &*r, op, state);
-        },
+        }
         ASTNode::FunctionDefinition(args, lines) => {
-            return Value::Function(args.clone(),lines.clone());
-        },
+            return Value::Function(args.clone(), lines.clone());
+        }
         e => {
             unimplemented!();
         }

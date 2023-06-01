@@ -5,10 +5,10 @@ pub mod tokeniser;
 
 use interpreter::interpret;
 use parser::parse_tokens;
-use tokeniser::lex_string;
 use std::env;
-use std::process::exit;
 use std::fs;
+use std::process::exit;
+use tokeniser::lex_string;
 
 fn main() {
     let input = String::from(
@@ -30,7 +30,9 @@ fn main() {
 
     let file_content = fs::read_to_string(file_name).expect("Unable to read file");
 
-    let tokens = parse_tokens(lex_string(file_content).unwrap()).unwrap();
-    
-    interpret(tokens);
+    let tokens = lex_string(file_content).unwrap();
+    // println!("tokens: {:?}",tokens);
+    let parsed = parse_tokens(tokens).unwrap();
+
+    interpret(parsed);
 }
