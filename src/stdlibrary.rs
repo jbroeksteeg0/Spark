@@ -38,14 +38,14 @@ pub fn create_default_scope() -> Scope {
     scope.values.insert(
         "println".into(),
         Value::Function(
-            vec!["s".into()],
+            vec!["println_arg".into()],
             vec![
                 // let string_name = str(s);
                 ASTNode::LetStatement(
                     "string_name".into(),
                     Box::new(ASTNode::FunctionCall(
                         "str".into(),
-                        vec![ASTNode::Variable("s".into())],
+                        vec![ASTNode::Variable("println_arg".into())],
                     )),
                 ),
                 ASTNode::ReturnStatement(Box::new(ASTNode::BuiltInFunction(
@@ -155,7 +155,7 @@ pub fn create_default_scope() -> Scope {
                             ret
                         }
                         _ => {
-                            panic!("'get' expects a list and two numbers, other values found");
+                            panic!("'get' expects a list and a number, other values found");
                         }
                     };
                 }),

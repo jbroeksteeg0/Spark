@@ -50,6 +50,24 @@ fn lex_whitespace(input: &str) -> Option<(Vec<Token>, &str)> {
     };
 }
 
+fn lex_comment(input: &str) -> Option<(Vec<Token>, &str)> {
+    if input.len() < 2 {
+        return None;
+    }
+
+    match &input[0..2] {
+        "//" => {
+            let end_ind = input.chars().into_iter().enumerate().find(|(i, c)| c == &'\n');
+
+            return match end_ind {
+                Some((i, _)) => Some((vec![],&input[i+1..])),
+                None => Some((vec![], &""))
+            };
+        },
+        _ => return None
+    };
+}
+
 fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
     // All the keywords and their corresponding tokens
     let keywords = vec![
@@ -82,7 +100,7 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("<=", Token::TkBinaryOperation(BinaryOperation::LE)),
         (">", Token::TkBinaryOperation(BinaryOperation::GREATER)),
         ("<", Token::TkBinaryOperation(BinaryOperation::LESS)),
-        ("!", Token::TkExclamation)
+        ("!", Token::TkExclamation),
     ];
 
     // Find the first keyword that is a prefix of the input
@@ -176,6 +194,7 @@ fn lex_string_literal(input: &str) -> Option<(Vec<Token>, &str)> {
 pub fn lex_string(input: String) -> Result<Vec<Token>, String> {
     // The functions that can be used to lex a token, in order of priority
     let functions: Vec<TokeniseFunction> = vec![
+        lex_comment,
         lex_keyword,
         lex_variable,
         lex_string_literal,

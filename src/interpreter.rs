@@ -16,6 +16,7 @@ pub enum Value {
     None,
 }
 
+#[derive(Clone, Debug)]
 enum ExitCond {
     Return(Value),
     Break,
@@ -116,6 +117,7 @@ impl State {
         if self.scopes.iter().any(|x| x.values.contains_key(&name)) {
             self.scopes
                 .iter_mut()
+                .rev()
                 .find(|x| x.values.contains_key(&name))
                 .unwrap()
                 .values
@@ -204,7 +206,6 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
                 let ret_value = interpret_block(&lines, state);
 
                 state.pop_scope();
-
                 return match ret_value {
                     Return(v) => v,
                     Break => panic!("Break called in block not in a loop"),
@@ -222,12 +223,11 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         }
         ASTNode::BinaryOperation(l, r, op) => {
             return evaluate_binary_op(&*l, &*r, op, state);
-        },
+        }
         ASTNode::BooleanNot(expr) => match evaluate_expr(expr, state) {
             Value::Boolean(b) => Value::Boolean(!b),
             _ => panic!("Boolean NOT applied to non-boolean value"),
-        }
-
+        },
 
         ASTNode::FunctionDefinition(args, lines) => {
             return Value::Function(args.clone(), lines.clone());
@@ -330,17 +330,27 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> ExitCond {
                 state.set_value(name.clone(), evaluated);
             }
             ASTNode::IfStatement(cond, lines) => match interpret_if(cond, lines, state) {
-                Return(v) => return Return(v),
-                Break => return Break,
-                Continue => return Continue,
                 None => {}
+                x => {
+                    return_val = x;
+                    break;
+                }
             },
             ASTNode::WhileStatement(cond, lines) => match interpret_while(cond, lines, state) {
                 None => {}
-                x => return x,
+                x => {
+                    return_val = x;
+                    break;
+                }
             },
             ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
-                interpret_if_else(cond, true_clause, false_clause, state);
+                match interpret_if_else(cond, true_clause, false_clause, state) {
+                    None => {}
+                    x => {
+                        return_val = x;
+                        break;
+                    }
+                }
             }
             ASTNode::ReturnStatement(expr) => {
                 return_val = Return(evaluate_expr(expr, state));
@@ -348,7 +358,10 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> ExitCond {
             }
             ASTNode::Block(lines) => match interpret_block(lines, state) {
                 None => {}
-                x => return x,
+                x => {
+                    return_val = x;
+                    break;
+                }
             },
             ASTNode::BreakStatement => {
                 return_val = Break;

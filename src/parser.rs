@@ -158,18 +158,13 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                 )),
                 Err(_) => None,
             }
-        },
+        }
         [Token::TkExclamation, after_explanation @ ..] => {
             match parse_expression(after_explanation) {
-                Ok((node, after_expr)) => Some((
-                    ASTNode::BooleanNot(
-                        Box::new(node),
-                    ),
-                    after_expr,
-                )),
+                Ok((node, after_expr)) => Some((ASTNode::BooleanNot(Box::new(node)), after_expr)),
                 Err(_) => None,
             }
-        },
+        }
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),
         // If there is a string literal, return it
@@ -382,7 +377,7 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
         },
         // Parse Break
         [Token::TkBreak, Token::TkSemicolon, after @ ..] => Ok((ASTNode::BreakStatement, after)),
-       // Parse Continue
+        // Parse Continue
         [Token::TkContinue, Token::TkSemicolon, after @ ..] => {
             Ok((ASTNode::ContinueStatement, after))
         }
