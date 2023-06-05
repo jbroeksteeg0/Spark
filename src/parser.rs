@@ -17,6 +17,8 @@ pub enum ASTNode {
     LetStatement(String, Box<ASTNode>),
     AssignStatement(String, Box<ASTNode>),
     ReturnStatement(Box<ASTNode>),
+    ContinueStatement,
+    BreakStatement,
     IfStatement(Box<ASTNode>, Box<ASTNode>),
     WhileStatement(Box<ASTNode>, Box<ASTNode>),
     IfElseStatement(Box<ASTNode>, Box<ASTNode>, Box<ASTNode>),
@@ -44,6 +46,8 @@ impl fmt::Debug for ASTNode {
             ReturnStatement(expr) => write!(f, "Return({:?})", expr),
             ListLiteral(elems) => write!(f, "{:?}", elems),
             WhileStatement(cond, lines) => write!(f, "While({:?}, {:?})", cond, lines),
+            BreakStatement => write!(f,"Break()"),
+            ContinueStatement => write!(f,"Continue()"),
         }
     }
 }
@@ -163,7 +167,7 @@ fn parse_expression_md(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                 Some(Token::TkBinaryOperation(binop))
                     if binop.clone() == BinaryOperation::TIMES
                         || binop.clone() == BinaryOperation::DIV
-                        || binop.clone() == BinaryOperation::MOD  =>
+                        || binop.clone() == BinaryOperation::MOD =>
                 {
                     let chars_behind = input.len() - (tail1.len() - 1);
 
@@ -349,6 +353,14 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
             Ok((node, after_semi)) => Ok((ASTNode::ReturnStatement(Box::new(node)), after_semi)),
             Err(e) => Err(e),
         },
+        // Parse Break
+        [Token::TkBreak, Token::TkSemicolon, after @ ..] => {
+            Ok((ASTNode::BreakStatement, after))
+        }
+        // Parse Continue
+        [Token::TkContinue, Token::TkSemicolon, after @ ..] => {
+            Ok((ASTNode::ContinueStatement, after))
+        }
 
         [Token::TkOpenCurly, ..] => match parse_block(input) {
             Ok(x) => return Ok(x),

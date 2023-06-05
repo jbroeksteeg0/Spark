@@ -1,6 +1,7 @@
 use std::collections::hash_map::HashMap;
 use std::fmt;
 
+use crate::interpreter::ExitCond::*;
 use crate::parser::ASTNode;
 use crate::stdlibrary::create_default_scope;
 use crate::tokeniser::BinaryOperation;
@@ -12,6 +13,13 @@ pub enum Value {
     List(Vec<Value>),
     Function(Vec<String>, Vec<ASTNode>),
     Boolean(bool),
+    None,
+}
+
+enum ExitCond {
+    Return(Value),
+    Break,
+    Continue,
     None,
 }
 
@@ -170,7 +178,7 @@ fn evaluate_binary_op(
             let mut temp = a.clone();
             temp.append(&mut b.clone());
             Value::List(temp)
-        },
+        }
         (Value::Boolean(a), BinaryOperation::EQUALS, Value::Boolean(b)) => Value::Boolean(a == b),
         _ => panic!("Could not evaluate binary operation"),
     }
@@ -196,7 +204,13 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
                 let ret_value = interpret_block(&lines, state);
 
                 state.pop_scope();
-                return ret_value.unwrap();
+
+                return match ret_value {
+                    Return(v) => v,
+                    Break => panic!("Break called in block not in a loop"),
+                    Continue => panic!("Continue called in block not in a loop"),
+                    None => Value::None,
+                };
             }
             _ => panic!("Cannot use () on non-function variable"),
         },
@@ -225,12 +239,14 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
     }
 }
 
-fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Value> {
+fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> ExitCond {
     match (cond, lines) {
         (e, ASTNode::Block(lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
                 match interpret_block(lines, state) {
-                    Some(v) => return Some(v),
+                    Return(v) => return Return(v),
+                    Break => return Break,
+                    Continue => return Continue,
                     None => {}
                 };
             }
@@ -238,16 +254,18 @@ fn interpret_if(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Va
         _ => panic!("If statement should be passed lines"),
     };
 
-    None
+    ExitCond::None
 }
 
-fn interpret_while(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option<Value> {
+fn interpret_while(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> ExitCond {
     loop {
         match (cond, lines) {
             (e, ASTNode::Block(lines)) => {
                 if evaluate_expr(e, state) == Value::Boolean(true) {
                     match interpret_block(lines, state) {
-                        Some(v) => return Some(v),
+                        Return(v) => return Return(v),
+                        Break => return None,
+                        Continue => continue,
                         None => {}
                     };
                 } else {
@@ -258,7 +276,7 @@ fn interpret_while(cond: &ASTNode, lines: &ASTNode, state: &mut State) -> Option
         };
     }
 
-    None
+    ExitCond::None
 }
 
 fn interpret_if_else(
@@ -266,17 +284,21 @@ fn interpret_if_else(
     lines: &ASTNode,
     else_lines: &ASTNode,
     state: &mut State,
-) -> Option<Value> {
+) -> ExitCond {
     match (cond, lines, else_lines) {
         (e, ASTNode::Block(lines), ASTNode::Block(else_lines)) => {
             if evaluate_expr(e, state) == Value::Boolean(true) {
                 match interpret_block(&lines, state) {
-                    Some(v) => return Some(v),
+                    Return(r) => return Return(r),
+                    Break => return Break,
+                    Continue => return Continue,
                     None => {}
                 }
             } else {
                 match interpret_block(&else_lines, state) {
-                    Some(v) => return Some(v),
+                    Return(r) => return Return(r),
+                    Break => return Break,
+                    Continue => return Continue,
                     None => {}
                 }
             }
@@ -287,7 +309,7 @@ fn interpret_if_else(
     None
 }
 
-fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Option<Value> {
+fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> ExitCond {
     state.push_scope();
     let mut return_val = None;
 
@@ -302,33 +324,34 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> Option<Value> {
                 state.set_value(name.clone(), evaluated);
             }
             ASTNode::IfStatement(cond, lines) => match interpret_if(cond, lines, state) {
-                Some(ret) => {
-                    return_val = Some(ret);
-                    break;
-                }
+                Return(v) => return Return(v),
+                Break => return Break,
+                Continue => return Continue,
                 None => {}
             },
             ASTNode::WhileStatement(cond, lines) => match interpret_while(cond, lines, state) {
-                Some(ret) => {
-                    return_val = Some(ret);
-                    break;
-                }
-                None => {}
+                None => {},
+                x => return x
             },
             ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
                 interpret_if_else(cond, true_clause, false_clause, state);
             }
             ASTNode::ReturnStatement(expr) => {
-                return_val = Some(evaluate_expr(expr, state));
+                return_val = Return(evaluate_expr(expr, state));
                 break;
             }
             ASTNode::Block(lines) => match interpret_block(lines, state) {
-                Some(ret) => {
-                    return_val = Some(ret);
-                    break;
-                }
-                None => {}
+                None => {},
+                x => return x
             },
+            ASTNode::BreakStatement => {
+                return_val = Break;
+                break;
+            },
+            ASTNode::ContinueStatement => {
+                return_val = Continue;
+                break;
+            }
             _ => {
                 evaluate_expr(line, state);
             }

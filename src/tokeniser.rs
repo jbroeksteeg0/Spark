@@ -9,7 +9,7 @@ pub enum BinaryOperation {
     GREATER,
     LESS,
     EQUALS,
-    MOD
+    MOD,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +29,8 @@ pub enum Token {
     TkOpenSquare,
     TkCloseSquare,
     TkReturn,
+    TkBreak,
+    TkContinue,
     TkSemicolon,
     TkWhile,
     TkBinaryOperation(BinaryOperation),
@@ -55,6 +57,8 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("else", Token::TkElse),
         ("fn", Token::TkFn),
         ("return", Token::TkReturn),
+        ("break", Token::TkBreak),
+        ("continue", Token::TkContinue),
         ("while", Token::TkWhile),
         ("==", Token::TkBinaryOperation(BinaryOperation::EQUALS)),
         ("=", Token::TkEquals),
