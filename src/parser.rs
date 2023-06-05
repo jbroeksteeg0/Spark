@@ -9,6 +9,7 @@ pub enum ASTNode {
     FunctionCall(String, Vec<ASTNode>),
     FunctionDefinition(Vec<String>, Vec<ASTNode>),
     BinaryOperation(Box<ASTNode>, Box<ASTNode>, BinaryOperation),
+    BooleanNot(Box<ASTNode>),
     Variable(String),
     NumberLiteral(f64),
     StringLiteral(String),
@@ -38,6 +39,7 @@ impl fmt::Debug for ASTNode {
             NumberLiteral(fl) => write!(f, "{}", fl),
             BoolLiteral(b) => write!(f, "{}", b),
             BinaryOperation(l, r, binop) => write!(f, "BinOp{:?}({:?},{:?})", binop, l, r),
+            BooleanNot(expr) => write!(f, "!({:?})", expr),
             Variable(x) => write!(f, "{:?}", x),
             FunctionCall(name, args) => write!(f, "Call({:?},{:?})", name, args),
             StringLiteral(s) => write!(f, "\"{}\"", s),
@@ -46,8 +48,8 @@ impl fmt::Debug for ASTNode {
             ReturnStatement(expr) => write!(f, "Return({:?})", expr),
             ListLiteral(elems) => write!(f, "{:?}", elems),
             WhileStatement(cond, lines) => write!(f, "While({:?}, {:?})", cond, lines),
-            BreakStatement => write!(f,"Break()"),
-            ContinueStatement => write!(f,"Continue()"),
+            BreakStatement => write!(f, "Break()"),
+            ContinueStatement => write!(f, "Continue()"),
         }
     }
 }
@@ -143,6 +145,31 @@ fn parse_expression_base(input: &[Token]) -> Option<(ASTNode, &[Token])> {
                 };
             }
         }
+        // Unary minus
+        [Token::TkBinaryOperation(BinaryOperation::MINUS), after_minus @ ..] => {
+            match parse_expression(after_minus) {
+                Ok((node, after_expr)) => Some((
+                    ASTNode::BinaryOperation(
+                        Box::new(node),
+                        Box::new(ASTNode::NumberLiteral(-1.0f64)),
+                        BinaryOperation::TIMES,
+                    ),
+                    after_expr,
+                )),
+                Err(_) => None,
+            }
+        },
+        [Token::TkExclamation, after_explanation @ ..] => {
+            match parse_expression(after_explanation) {
+                Ok((node, after_expr)) => Some((
+                    ASTNode::BooleanNot(
+                        Box::new(node),
+                    ),
+                    after_expr,
+                )),
+                Err(_) => None,
+            }
+        },
         // If there is a number, return it
         [Token::TkNumber(x), ..] => Some((ASTNode::NumberLiteral(x.clone()), &input[1..])),
         // If there is a string literal, return it
@@ -354,10 +381,8 @@ fn parse_statement(input: &[Token]) -> Result<(ASTNode, &[Token]), String> {
             Err(e) => Err(e),
         },
         // Parse Break
-        [Token::TkBreak, Token::TkSemicolon, after @ ..] => {
-            Ok((ASTNode::BreakStatement, after))
-        }
-        // Parse Continue
+        [Token::TkBreak, Token::TkSemicolon, after @ ..] => Ok((ASTNode::BreakStatement, after)),
+       // Parse Continue
         [Token::TkContinue, Token::TkSemicolon, after @ ..] => {
             Ok((ASTNode::ContinueStatement, after))
         }

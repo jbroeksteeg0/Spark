@@ -222,7 +222,13 @@ fn evaluate_expr(expr: &ASTNode, state: &mut State) -> Value {
         }
         ASTNode::BinaryOperation(l, r, op) => {
             return evaluate_binary_op(&*l, &*r, op, state);
+        },
+        ASTNode::BooleanNot(expr) => match evaluate_expr(expr, state) {
+            Value::Boolean(b) => Value::Boolean(!b),
+            _ => panic!("Boolean NOT applied to non-boolean value"),
         }
+
+
         ASTNode::FunctionDefinition(args, lines) => {
             return Value::Function(args.clone(), lines.clone());
         }
@@ -330,8 +336,8 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> ExitCond {
                 None => {}
             },
             ASTNode::WhileStatement(cond, lines) => match interpret_while(cond, lines, state) {
-                None => {},
-                x => return x
+                None => {}
+                x => return x,
             },
             ASTNode::IfElseStatement(cond, true_clause, false_clause) => {
                 interpret_if_else(cond, true_clause, false_clause, state);
@@ -341,13 +347,13 @@ fn interpret_block(lines: &Vec<ASTNode>, state: &mut State) -> ExitCond {
                 break;
             }
             ASTNode::Block(lines) => match interpret_block(lines, state) {
-                None => {},
-                x => return x
+                None => {}
+                x => return x,
             },
             ASTNode::BreakStatement => {
                 return_val = Break;
                 break;
-            },
+            }
             ASTNode::ContinueStatement => {
                 return_val = Continue;
                 break;

@@ -31,6 +31,7 @@ pub enum Token {
     TkReturn,
     TkBreak,
     TkContinue,
+    TkExclamation,
     TkSemicolon,
     TkWhile,
     TkBinaryOperation(BinaryOperation),
@@ -81,6 +82,7 @@ fn lex_keyword(input: &str) -> Option<(Vec<Token>, &str)> {
         ("<=", Token::TkBinaryOperation(BinaryOperation::LE)),
         (">", Token::TkBinaryOperation(BinaryOperation::GREATER)),
         ("<", Token::TkBinaryOperation(BinaryOperation::LESS)),
+        ("!", Token::TkExclamation)
     ];
 
     // Find the first keyword that is a prefix of the input
