@@ -5,6 +5,7 @@ Spark is an interpreted minimal proglang written in rust over the span of roughl
 - Lists, Booleans, Numbers, Strings
 - While loops
 
+🚀🚀🚀🚀🚀 blazingly fast 🚀🚀🚀🚀🚀🚀🚀 (kill me)
 ## Prime Numbers
 ```
 let is_prime = fn(x) {
